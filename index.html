@@ -372,7 +372,7 @@
     }
   </style>
 
-  <script src="/socket.io/socket.io.js"></script>
+  
   <script type="text/javascript">
     class Card {
       constructor(number, family, fullName, special = false, type) {
@@ -393,10 +393,10 @@
     const threeRed = new Card("3", "red", "3 Rouge");
     const fourRed = new Card("4", "red", "4 Rouge");
 
-    var socket = null;
+    let socket = null;
 
 
-    var chatBox = new Vue({
+    let chatBox = new Vue({
       el: '#chat',
       data: {
         history: [],
@@ -542,7 +542,7 @@
         }
       },
       created: function () {
-        socket = io({
+        socket = io("http://localhost:3000", {
           'reconnection': false,
           'reconnectionDelay': 1000,
           'reconnectionDelayMax': 5000,
