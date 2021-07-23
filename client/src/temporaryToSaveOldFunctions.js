@@ -19,7 +19,7 @@ socket.emit('create-room', {
 
 socket.emit('show-connexion')
 socket.emit('hide-connexion') // Fermeture de la page de connexion
-socket.emit('update-room', {"room" : socket.room});
+socket.emit('update-room', {room : socket.room});
 
 const titlesToast = [
     "Erreur",
@@ -130,17 +130,17 @@ socket.broadcast.to(socket.room).emit('show-toast', {
 
 
 io.to(socket.room).emit('refresh-playerlist', {
-    'playerList': UnoUtils.getUsernamesInRoom(socket.room)
+    playerList: UnoUtils.getUsernamesInRoom(socket.room)
 });
 
 socket.emit('hide-connexion');
 
 socket.emit('refresh-mutedList', io.sockets.adapter.rooms[socket.room].mutedList); //on envoit la liste des muted (théoriquement vide)
 
-socket.emit('update-room', {"room" : socket.room});
+socket.emit('update-room', {room : socket.room});
 
 
-socket.emit('toggle-nav-el', {     // Affichage des éléments d'admin de la partie
+ socket.emit('toggle-nav-el', {     // Affichage des éléments d'admin de la partie
     'element': 'OptionMenu',
     'option': true
 });
