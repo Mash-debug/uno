@@ -8,7 +8,7 @@ const io = require('socket.io')(http, {
         methods: ["GET", "POST"]
     }
 });
-const _ = require('lodash');
+
 const cards = require('./cards.json');
 const UnoUtils = require('./UnoUtils');
 
@@ -99,7 +99,7 @@ io.on('connection', (socket) => {
     socket.on('join-room', function (data) {
         socket.tempPseudo = data.pseudo.trim().toString();
         socket.tempRoom = data.room.trim().toString();
-        if ((socket.tempPseudo.length < 3 || socket.tempPseudo.length > 20) || (socket.tempRoom.length != 6) || (!_.includes(Object.keys(io.sockets.adapter.rooms), socket.tempRoom))) { //Vérifie si le nom de la room et le pseudo sont conformes et qu'elle existe
+        if ((socket.tempPseudo.length < 3 || socket.tempPseudo.length > 20) || (socket.tempRoom.length != 6) || (!Object.keys(io.sockets.adapter.rooms).includes(socket.tempRoom))) { //Vérifie si le nom de la room et le pseudo sont conformes et qu'elle existe
             //Pseudo trop court, trop long, la room n'a pas 6 caractères ou elle n'existe pas
             socket.emit('show-toast', {
                 "title": "Erreur",
@@ -109,7 +109,7 @@ io.on('connection', (socket) => {
             });
             delete socket.tempPseudo;
             delete socket.tempRoom;
-        } else if (_.includes(UnoUtils.getUsersInRoom(socket.tempRoom, io), socket.id)) { //Vérifie si le socket essai de se reconnecter au même salon
+        } else if (UnoUtils.getUsersInRoom(socket.tempRoom, io).includes(socket.id)) { //Vérifie si le socket essai de se reconnecter au même salon
             //Même salon
             socket.emit('show-toast', {
                 "title": "Erreur",
@@ -119,7 +119,7 @@ io.on('connection', (socket) => {
             });
             delete socket.tempPseudo;
             delete socket.tempRoom;
-        } else if (_.includes(UnoUtils.getUsernamesInRoom(socket.tempRoom), socket.tempPseudo)) { //Vérifie si le pseudo que le socket souhaite utiliser est déjà utilisé dans le salon
+        } else if (UnoUtils.getUsernamesInRoom(socket.tempRoom).includes(socket.tempPseudo)) { //Vérifie si le pseudo que le socket souhaite utiliser est déjà utilisé dans le salon
             //Qlq a déjà le même pseudo dans cette room
             socket.emit('show-toast', {
                 "title": "Erreur",
@@ -170,18 +170,20 @@ io.on('connection', (socket) => {
     })
 
     socket.on('toggle-mute', function (mutedPseudo) {
+
+        let mutedList = io.sockets.adapter.rooms[socket.room].mutedList;
         //Lorsqu'on reçoit l'information de désactiver ou activer le mute sur qlq
         if (socket.admin == socket.room) { //Vérification si admin
-            if (socket.pseudo != mutedPseudo && _.includes(UnoUtils.getUsernamesInRoom(socket.room), mutedPseudo)) { //On empêche l'admin de se mute lui même et on vérifie si le joueur existe
-                if (!_.includes(io.sockets.adapter.rooms[socket.room].mutedList, mutedPseudo)) { //Si mutedList ne contient pas encore ce joueur
-                    io.sockets.adapter.rooms[socket.room].mutedList.push(mutedPseudo); //ajoute ce joueur à la liste
+            if (socket.pseudo != mutedPseudo && UnoUtils.getUsernamesInRoom(socket.room).includes(mutedPseudo)) { //On empêche l'admin de se mute lui même et on vérifie si le joueur existe
+                if (!mutedList.includes(mutedPseudo)) { //Si mutedList ne contient pas encore ce joueur
+                    mutedList.push(mutedPseudo); //ajoute ce joueur à la liste
                     io.to(socket.room).emit('show-chat-message', {
                         "sender": "",
                         "message": mutedPseudo + " a été mute.",
                         "style": "list-group-item-warning"
                     });
                 } else {
-                    io.sockets.adapter.rooms[socket.room].mutedList = _.remove(io.sockets.adapter.rooms[socket.room].mutedList, function(element) {
+                    mutedList = mutedList.filter(function(element) {
                         return element != mutedPseudo;
                     }); //On retire le pseudo s'il est déjà dans la liste grâce à un filtre
                     io.to(socket.room).emit('show-chat-message', {
@@ -190,7 +192,7 @@ io.on('connection', (socket) => {
                         "style": "list-group-item-warning"
                     });
                 }
-                socket.emit('refresh-mutedList', io.sockets.adapter.rooms[socket.room].mutedList); //on renvoit la liste des muted
+                socket.emit('refresh-mutedList', mutedList); //on renvoit la liste des muted
             }
         } else {
             socket.emit('show-toast', {
@@ -203,6 +205,9 @@ io.on('connection', (socket) => {
     })
 
     socket.on('send-message', function (data) {
+
+        let mutedList = io.sockets.adapter.rooms[socket.room].mutedList;
+
         if (socket.isConnected == false) {
             socket.emit('show-toast', {
                 "title": "Erreur",
@@ -210,7 +215,7 @@ io.on('connection', (socket) => {
                 "variant": "danger",
                 "toaster": "b-toaster-bottom-right"
             });
-        } else if (_.includes(io.sockets.adapter.rooms[socket.room].mutedList, socket.pseudo)) {
+        } else if (mutedList.includes(socket.pseudo)) {
             socket.emit('show-toast', {
                 "title": "Erreur",
                 "desc": "Vous ne pouvez pas parler car vous avez été mute par le créateur du salon.",
@@ -243,7 +248,7 @@ io.on('connection', (socket) => {
 
     socket.on('kick-player', function (kickedPseudo) {
         if (socket.admin == socket.room) { //Si le joueur qui demande le kick est l'admin
-            if (socket.pseudo != kickedPseudo && _.includes(UnoUtils.getUsernamesInRoom(socket.room), kickedPseudo)) { //Si le joueur à kick n'est pas lui-même et si il existe bien
+            if (socket.pseudo != kickedPseudo && UnoUtils.getUsernamesInRoom(socket.room).includes(kickedPseudo)) { //Si le joueur à kick n'est pas lui-même et si il existe bien
                 
                 let kickedSocket = io.sockets.connected[UnoUtils.getIdByPseudo(kickedPseudo, socket.room)];
 
@@ -333,8 +338,8 @@ http.listen(PORT, () => console.log("Server listening on port" + PORT))
 let newDeck = deck;
 let p1Deck;
 
-p1Deck =  _.take(newDeck, 7);
-newDeck = _.drop(newDeck, 7);
+p1Deck =  newDeck.slice(0, 7);
+newDeck = newDeck.slice(7);
 
 console.log(p1Deck);
 console.log(newDeck);
